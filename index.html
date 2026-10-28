@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plant Placement Generator</title>
+  <style>
+    :root { color-scheme: dark; --ink:#f6fff0; --muted:#c2d6b9; --border:rgba(255,255,255,.18); --accent:#ffe05c; --purple:#2d306b; --purple-dark:#1c2050; }
+    * { box-sizing:border-box; }
+    body { min-height:100vh; margin:0; padding:clamp(18px,4vw,42px); font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:radial-gradient(circle at 9% 8%,#446f54 0 2%,transparent 22%),radial-gradient(circle at 86% 15%,#1e4b49 0 2%,transparent 22%),linear-gradient(145deg,#0d2728,#173e31 58%,#101e34); }
+    .app { width:min(100%,1120px); margin:0 auto; }
+    .intro { margin-bottom:24px; text-align:center; }
+    h1 { margin:0 0 8px; font-size:clamp(2rem,5vw,3.3rem); line-height:1; }
+    .intro p { margin:0; color:var(--muted); }
+    .workspace { display:grid; grid-template-columns:minmax(280px,360px) minmax(0,1fr); gap:20px; align-items:start; }
+    .control-panel,.preview-panel,.creator-footer { border:1px solid var(--border); border-radius:24px; box-shadow:0 22px 60px rgba(0,0,0,.26); }
+    .control-panel { padding:22px; background:rgba(21,66,74,.72); backdrop-filter:blur(12px); }
+    .panel-heading { margin:0 0 6px; font-size:1.2rem; }
+    .panel-description { margin:0 0 18px; color:var(--muted); font-size:.9rem; }
+    form { display:grid; gap:15px; }
+    .settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    label { display:grid; gap:6px; color:var(--ink); font-size:.82rem; font-weight:750; }
+    input { width:100%; border:1px solid rgba(255,255,255,.24); border-radius:10px; padding:9px 10px; font:inherit; color:var(--ink); background:rgba(5,35,41,.36); outline:none; }
+    input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(255,224,92,.2); }
+    input::placeholder { color:#bdc1e7; }
+    .plants-label { margin:2px 0 -6px; color:var(--ink); font-size:.82rem; font-weight:750; }
+    .plant-list { display:grid; gap:8px; max-height:276px; overflow:auto; padding-right:3px; }
+    .plant-row { display:grid; grid-template-columns:minmax(0,1fr) 38px; gap:8px; align-items:end; }
+    .plant-row label { min-width:0; }
+    .plant-name-input { font-size:.9rem; }
+    button { border:0; border-radius:12px; padding:11px 14px; cursor:pointer; font:inherit; font-weight:850; transition:transform .15s ease,filter .15s ease; }
+    button:hover { transform:translateY(-2px); filter:brightness(1.06); }
+    button:active { transform:translateY(1px); }
+    .delete-button { height:40px; padding:0; color:white; background:#a73d58; font-size:1.2rem; }
+    .add-button { color:#152144; background:#c7d1ff; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .generate-button { color:#25301b; background:var(--accent); }
+    .reset-button { color:var(--ink); background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.2); }
+    .preview-panel { padding:clamp(16px,3vw,26px); background:rgba(8,38,29,.78); }
+    .preview-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:15px; }
+    .preview-heading h2 { margin:0; font-size:1.25rem; }
+    .preview-heading span { color:var(--muted); font-size:.82rem; text-align:right; }
+    .lawn { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:4px; padding:4px; border:4px solid #a47435; border-radius:13px; background:#714a28; }
+    .tile { aspect-ratio:1.02; display:grid; place-items:center; overflow:hidden; padding:3px; border-radius:4px; text-align:center; color:rgba(255,255,255,.78); font-size:clamp(.48rem,1.18vw,.78rem); font-weight:800; line-height:1.06; background-color:#5ba34d; background-image:linear-gradient(135deg,rgba(255,255,255,.11) 25%,transparent 25%,transparent 50%,rgba(0,0,0,.06) 50%,rgba(0,0,0,.06) 75%,transparent 75%); background-size:16px 16px; }
+    .tile:nth-child(18n + 1),.tile:nth-child(18n + 3),.tile:nth-child(18n + 5),.tile:nth-child(18n + 7),.tile:nth-child(18n + 9),.tile:nth-child(18n + 12),.tile:nth-child(18n + 14),.tile:nth-child(18n + 16),.tile:nth-child(18n + 18) { background-color:#4b9044; }
+    .tile.planted { color:#20331e; background-color:var(--plant-color,#f8cf55); background-image:radial-gradient(circle at 32% 25%,rgba(255,255,255,.5) 0 8%,transparent 9%),linear-gradient(135deg,rgba(255,255,255,.2),transparent); box-shadow:inset 0 0 0 2px rgba(35,51,25,.25); animation:pop .28s ease-out both; }
+    .plant-name { overflow-wrap:anywhere; }
+    .coordinate { display:block; margin-top:2px; font-size:.7em; opacity:.75; }
+    @keyframes pop { from { transform:scale(.72); opacity:.3; } to { transform:scale(1); opacity:1; } }
+    .status { min-height:24px; margin:16px 0 0; color:var(--muted); font-size:.88rem; font-weight:700; }
+    .status.error { color:#ffc2b3; }
+    .creator-footer { display:flex; align-items:center; justify-content:center; gap:15px; width:min(100%,600px); margin:24px auto 0; padding:16px 20px; text-align:left; background:rgba(8,31,24,.78); }
+    .profile-image { width:70px; height:70px; flex:0 0 auto; border:3px solid var(--accent); border-radius:50%; object-fit:cover; }
+    .creator-footer p { margin:0; color:var(--muted); font-size:.88rem; }
+    .creator-footer strong { color:var(--ink); font-size:1rem; }
+    .creator-footer a { color:var(--accent); font-weight:800; text-decoration:none; }
+    .creator-footer a:hover { text-decoration:underline; }
+    @media (max-width:760px) { body { padding:18px; } .workspace { grid-template-columns:1fr; } .control-panel { order:2; } .preview-panel { order:1; } }
+    @media (max-width:420px) { .settings,.actions { grid-template-columns:1fr; } .creator-footer { align-items:flex-start; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="intro"><h1>Plant Placement Generator</h1><p>Customize your plants, then generate a full PvZ2-style lawn formation.</p></header>
+    <section class="workspace" aria-label="Plant placement generator">
+      <aside class="control-panel" aria-label="Lawn customization">
+        <h2 class="panel-heading">Lawn customization</h2>
+        <p class="panel-description">Choose up to 10 plant types and the lawn area they will fill. Every plant needs a name.</p>
+        <form id="plant-form">
+          <div class="settings">
+            <label>Number of plants<input id="plant-count" type="number" min="1" max="10" value="3" inputmode="numeric"></label>
+            <label>Placement columns<input id="placement-columns" type="number" min="1" max="9" value="4" inputmode="numeric"></label>
+          </div>
+          <p class="plants-label">Plant names</p>
+          <div class="plant-list" id="plant-inputs"></div>
+          <button class="add-button" id="add-plant" type="button">+ Add plant</button>
+          <div class="actions"><button class="generate-button" id="generate" type="button">Generate placement</button><button class="reset-button" id="reset" type="button">Reset</button></div>
+        </form>
+      </aside>
+      <section class="preview-panel" aria-label="Lawn preview">
+        <div class="preview-heading"><h2>Lawn preview</h2><span id="placement-key">Columns 1–4 will be filled.</span></div>
+        <div class="lawn" id="lawn" aria-label="5-row by 9-column lawn grid"></div>
+        <p class="status" id="status" role="status" aria-live="polite">Add a name for every plant, then generate your formation.</p>
+      </section>
+    </section>
+    <footer class="creator-footer">
+      <img class="profile-image" src="arachnophobia-profile.jpg" alt="Arachnophobia YouTube profile image">
+      <p>Created by <strong>Arachnophobia</strong><br><a href="https://www.youtube.com/@aracnopobia" target="_blank" rel="noopener noreferrer">Go to my YouTube channel</a> · Please subscribe!<br>New features are coming soon.</p>
+    </footer>
+  </main>
+  <script type="text/plain">
+    const rows = 5, columns = 9, maxPlantTypes = 10;
+    let placementColumns = 4, placementCapacity = rows * placementColumns;
+    const lawn = document.querySelector('#lawn'), form = document.querySelector('#plant-form'), plantCountInput = document.querySelector('#plant-count'), placementColumnsInput = document.querySelector('#placement-columns'), plantInputs = document.querySelector('#plant-inputs'), addPlantButton = document.querySelector('#add-plant'), resetButton = document.querySelector('#reset'), status = document.querySelector('#status'), placementKey = document.querySelector('#placement-key');
+
+    const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+    function selectedPlacementColumns() { const value = Number.parseInt(placementColumnsInput.value, 10); return Number.isFinite(value) ? clamp(value, 1, columns) : 4; }
+    function maximumTypes() { return Math.min(maxPlantTypes, placementCapacity); }
+    function selectedPlantCount() { const value = Number.parseInt(plantCountInput.value, 10); return Number.isFinite(value) ? clamp(value, 1, maximumTypes()) : 3; }
+    function getPlantNames() { return Array.from(plantInputs.querySelectorAll('input')).map(input => input.value); }
+    function updatePlacementSettings() { placementColumns = selectedPlacementColumns(); placementCapacity = rows * placementColumns; placementColumnsInput.value = placementColumns; placementKey.textContent = `Columns 1–${placementColumns} will be filled (${placementCapacity} tiles).`; }
+
+    function renderPlantInputs(names = [], count = selectedPlantCount()) {
+      const targetCount = clamp(count, 1, maximumTypes());
+      plantCountInput.value = targetCount;
+      plantInputs.replaceChildren();
+      for (let index = 0; index < targetCount; index++) {
+        const row = document.createElement('div'); row.className = 'plant-row';
+        const label = document.createElement('label'); label.textContent = `Plant ${index + 1}`;
+        const input = document.createElement('input'); input.className = 'plant-name-input'; input.maxLength = 30; input.placeholder = `Plant ${index + 1}`; input.value = names[index] ?? ''; label.append(input);
+        const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'delete-button'; deleteButton.textContent = '×'; deleteButton.setAttribute('aria-label', `Delete plant ${index + 1}`); deleteButton.addEventListener('click', () => removePlant(index));
+        row.append(label, deleteButton); plantInputs.append(row);
+      }
+    }
+    function syncPlantInputs() { updatePlacementSettings(); renderPlantInputs(getPlantNames(), selectedPlantCount()); }
+    function addPlant() {
+      const names = getPlantNames();
+      if (names.length >= maximumTypes()) { status.textContent = `You can use up to ${maximumTypes()} plant types with the current column setting.`; status.className = 'status error'; return; }
+      names.push(''); renderPlantInputs(names, names.length); status.textContent = 'Plant added.'; status.className = 'status';
+    }
+    function removePlant(index) {
+      const names = getPlantNames();
+      if (names.length === 1) { status.textContent = 'At least one plant type is needed.'; status.className = 'status error'; return; }
+      names.splice(index, 1); renderPlantInputs(names, names.length); status.textContent = 'Plant removed.'; status.className = 'status';
+    }
+    const randomInteger = (minimum, maximum) => Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
+    function randomPlantCounts(numberOfTypes) { let remaining = placementCapacity; return Array.from({ length:numberOfTypes }, (_, index) => { const typesStillNeeded = numberOfTypes - index - 1; const count = index === numberOfTypes - 1 ? remaining : randomInteger(1, remaining - typesStillNeeded); remaining -= count; return count; }); }
+    function shuffledTileIndexes(count) { const indexes = Array.from({ length:placementCapacity }, (_, index) => Math.floor(index / placementColumns) * columns + index % placementColumns); for (let index = indexes.length - 1; index > 0; index--) { const target = Math.floor(Math.random() * (index + 1)); [indexes[index], indexes[target]] = [indexes[target], indexes[index]]; } return indexes.slice(0, count); }
+    const plantColor = index => `hsl(${(index * 137.508) % 360} 78% 74%)`;
+    function renderLawn(placements = []) {
+      lawn.replaceChildren(); const planted = new Map(placements.map(placement => [placement.tile, placement]));
+      for (let tile = 0; tile < rows * columns; tile++) {
+        const cell = document.createElement('div'), row = Math.floor(tile / columns) + 1, column = tile % columns + 1, placement = planted.get(tile);
+        cell.className = `tile${placement ? ' planted' : ''}`; cell.setAttribute('aria-label', placement ? `${placement.name}, row ${row}, column ${column}` : `Empty, row ${row}, column ${column}`);
+        if (placement) { cell.style.setProperty('--plant-color', placement.color); const name = document.createElement('span'); name.className = 'plant-name'; name.textContent = placement.name; const coordinate = document.createElement('span'); coordinate.className = 'coordinate'; coordinate.textContent = `R${row} · C${column}`; cell.append(name, coordinate); }
+        lawn.append(cell);
+      }
+    }
+    function generate() {
+      updatePlacementSettings(); const names = getPlantNames().map((name, index) => name.trim() || `Plant ${index + 1}`), counts = randomPlantCounts(names.length), plants = names.map((name, index) => ({ name, color:plantColor(index), count:counts[index] })), tiles = shuffledTileIndexes(placementCapacity); let tileIndex = 0;
+      const placements = plants.flatMap(plant => Array.from({ length:plant.count }, () => ({ name:plant.name, color:plant.color, tile:tiles[tileIndex++] })));
+      renderLawn(placements); status.textContent = `Placed! ${plants.map(plant => `${plant.name} × ${plant.count}`).join(' · ')}`; status.className = 'status';
+    }
+    form.addEventListener('submit', event => { event.preventDefault(); generate(); });
+    plantCountInput.addEventListener('change', syncPlantInputs);
+    placementColumnsInput.addEventListener('change', () => { updatePlacementSettings(); renderPlantInputs(getPlantNames(), selectedPlantCount()); renderLawn(); status.textContent = 'Column setting updated. Generate a new formation when ready.'; status.className = 'status'; });
+    addPlantButton.addEventListener('click', addPlant);
+    resetButton.addEventListener('click', () => { placementColumnsInput.value = 4; plantCountInput.value = 3; updatePlacementSettings(); renderPlantInputs([], 3); renderLawn(); status.textContent = 'Reset. The lawn and plant names are cleared.'; status.className = 'status'; });
+    updatePlacementSettings(); renderPlantInputs([], 3); renderLawn();
+  </script>
+  <script>
+    const rows = 5, columns = 9, maxPlantTypes = 10;
+    let columnLimit = 4, maximumCapacity = rows * columnLimit;
+    const lawn = document.querySelector('#lawn');
+    const form = document.querySelector('#plant-form');
+    const plantCountInput = document.querySelector('#plant-count');
+    const columnInput = document.querySelector('#placement-columns');
+    const plantInputs = document.querySelector('#plant-inputs');
+    const addPlantButton = document.querySelector('#add-plant');
+    const generateButton = document.querySelector('#generate');
+    const resetButton = document.querySelector('#reset');
+    const status = document.querySelector('#status');
+    const placementKey = document.querySelector('#placement-key');
+
+    const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+    const randomInteger = (minimum, maximum) => Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
+    function selectedNumber(input, maximum, fallback) {
+      const value = Number.parseInt(input.value, 10);
+      return Number.isFinite(value) ? clamp(value, 1, maximum) : fallback;
+    }
+    function maximumTypes() { return Math.min(maxPlantTypes, maximumCapacity); }
+    function selectedPlantCount() { return selectedNumber(plantCountInput, maximumTypes(), 3); }
+    function getPlantNames() { return Array.from(plantInputs.querySelectorAll('input')).map(input => input.value); }
+    function updatePlacementSettings() {
+      columnLimit = selectedNumber(columnInput, columns, 4);
+      maximumCapacity = columnLimit * rows;
+      columnInput.value = columnLimit;
+      placementKey.textContent = `All 5 rows and columns 1–${columnLimit} will be filled (${maximumCapacity} tiles).`;
+    }
+    function renderPlantInputs(names = [], count = selectedPlantCount()) {
+      const targetCount = clamp(count, 1, maximumTypes());
+      plantCountInput.value = targetCount;
+      plantInputs.replaceChildren();
+      for (let index = 0; index < targetCount; index++) {
+        const row = document.createElement('div'); row.className = 'plant-row';
+        const label = document.createElement('label'); label.textContent = `Plant ${index + 1}`;
+        const input = document.createElement('input');
+        input.className = 'plant-name-input'; input.maxLength = 30; input.required = true;
+        input.placeholder = `Name plant ${index + 1}`; input.value = names[index] ?? ''; label.append(input);
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button'; deleteButton.className = 'delete-button'; deleteButton.textContent = '×';
+        deleteButton.setAttribute('aria-label', `Delete plant ${index + 1}`);
+        deleteButton.addEventListener('click', () => removePlant(index));
+        row.append(label, deleteButton); plantInputs.append(row);
+      }
+    }
+    function syncPlantInputs() { const names = getPlantNames(); updatePlacementSettings(); renderPlantInputs(names, selectedPlantCount()); }
+    function addPlant() {
+      const names = getPlantNames();
+      if (names.length >= maximumTypes()) { status.textContent = `You can use up to ${maximumTypes()} plant types with the current lawn size.`; status.className = 'status error'; return; }
+      names.push(''); renderPlantInputs(names, names.length); status.textContent = 'Plant added.'; status.className = 'status';
+    }
+    function removePlant(index) {
+      const names = getPlantNames();
+      if (names.length === 1) { status.textContent = 'At least one named plant is needed.'; status.className = 'status error'; return; }
+      names.splice(index, 1); renderPlantInputs(names, names.length); status.textContent = 'Plant removed.'; status.className = 'status';
+    }
+    function randomPlantCounts(numberOfTypes, capacity) {
+      let remaining = capacity;
+      return Array.from({ length: numberOfTypes }, (_, index) => {
+        const typesStillNeeded = numberOfTypes - index - 1;
+        const count = index === numberOfTypes - 1 ? remaining : randomInteger(1, remaining - typesStillNeeded);
+        remaining -= count;
+        return count;
+      });
+    }
+    function shuffledTileIndexes() {
+      const indexes = Array.from({ length: maximumCapacity }, (_, index) => Math.floor(index / columnLimit) * columns + index % columnLimit);
+      for (let index = indexes.length - 1; index > 0; index--) {
+        const target = Math.floor(Math.random() * (index + 1));
+        [indexes[index], indexes[target]] = [indexes[target], indexes[index]];
+      }
+      return indexes;
+    }
+    const plantColor = index => `hsl(${(index * 137.508) % 360} 78% 74%)`;
+    function renderLawn(placements = []) {
+      lawn.replaceChildren(); const planted = new Map(placements.map(placement => [placement.tile, placement]));
+      for (let tile = 0; tile < rows * columns; tile++) {
+        const cell = document.createElement('div'), row = Math.floor(tile / columns) + 1, column = tile % columns + 1, placement = planted.get(tile);
+        cell.className = `tile${placement ? ' planted' : ''}`;
+        cell.setAttribute('aria-label', placement ? `${placement.name}, row ${row}, column ${column}` : `Empty, row ${row}, column ${column}`);
+        if (placement) {
+          cell.style.setProperty('--plant-color', placement.color);
+          const name = document.createElement('span'); name.className = 'plant-name'; name.textContent = placement.name;
+          const coordinate = document.createElement('span'); coordinate.className = 'coordinate'; coordinate.textContent = `R${row} · C${column}`;
+          cell.append(name, coordinate);
+        }
+        lawn.append(cell);
+      }
+    }
+    function generate() {
+      updatePlacementSettings();
+      if (!form.reportValidity()) return;
+      const names = getPlantNames().map(name => name.trim());
+      const counts = randomPlantCounts(names.length, maximumCapacity);
+      const tiles = shuffledTileIndexes();
+      let tileIndex = 0;
+      const plants = names.map((name, index) => ({ name, color: plantColor(index), count: counts[index] }));
+      const placements = plants.flatMap(plant => Array.from({ length: plant.count }, () => ({ name: plant.name, color: plant.color, tile: tiles[tileIndex++] })));
+      renderLawn(placements);
+      status.textContent = `Placed in all 5 rows × ${columnLimit} column${columnLimit === 1 ? '' : 's'}! ${plants.map(plant => `${plant.name} × ${plant.count}`).join(' · ')}`;
+      status.className = 'status';
+    }
+    function refreshSettings() {
+      const names = getPlantNames(); updatePlacementSettings(); renderPlantInputs(names, selectedPlantCount()); renderLawn();
+      status.textContent = 'Placement settings updated. Generate a new formation when ready.'; status.className = 'status';
+    }
+    form.addEventListener('submit', event => event.preventDefault());
+    plantCountInput.addEventListener('change', syncPlantInputs);
+    columnInput.addEventListener('change', refreshSettings);
+    addPlantButton.addEventListener('click', addPlant);
+    generateButton.addEventListener('click', generate);
+    resetButton.addEventListener('click', () => {
+      plantCountInput.value = 3; columnInput.value = 4;
+      updatePlacementSettings(); renderPlantInputs([], 3); renderLawn();
+      status.textContent = 'Reset. The lawn and plant names are cleared.'; status.className = 'status';
+    });
+    updatePlacementSettings(); renderPlantInputs([], 3); renderLawn();
+  </script>
+</body>
+</html>
